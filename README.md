@@ -19,15 +19,28 @@ The major roadmap for this repository is as follows.
 
 ```mermaid
 graph LR;
+title Baseline RL Pipeline Diagram
+
+Section Pretraining
     In-game Text ==> Generative Pretrained Transformers (GPT);
     Generative Pretrained Transformers (GPT) -.-> In-game Text;
-
+Section Offline Supervised Training
     State ==> Policy;
     Policy --o Action;
     Policy --o Reward;
-    Reward <-> Game Result;
-    Action <-> Human Annotation;
-    Action <-> All Available Options;
+    Reward <--> Game Result;
+    Action <--> Human Annotation;
+    Action <--> All Available Options;
+
+    State ==> Predictor;
+    Action ==> Predictor;
+    Predictor --o State;
+Section Online Contrastive Learning
+  State ==> Policy;
+    Policy --o Action;
+    Policy --o Reward;
+    Reward <--> Contrastive Learning based on Game Result + Curiosity based Exploration;
+    Action <--> All Available Options;
 
     State ==> Predictor;
     Action ==> Predictor;
