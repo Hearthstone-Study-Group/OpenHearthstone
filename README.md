@@ -17,32 +17,41 @@ The major roadmap for this repository is as follows.
 
 ## Baseline Reinforcement Learning Pipeline Design
 
+### Pretraining
 ```mermaid
 graph LR;
-title Baseline RL Pipeline Diagram
 
-Section Pretraining
-    In-game Text ==> Generative Pretrained Transformers (GPT);
-    Generative Pretrained Transformers (GPT) -.-> In-game Text;
-Section Offline Supervised Training
+    Text[In-game Text] ==> GPT([Generative Pretrained Transformers]);
+    GPT -.-> Text;
+```
+
+### Offline Supervised Learning
+```mermaid
+graph TD;
     State ==> Policy;
-    Policy --o Action;
-    Policy --o Reward;
-    Reward <--> Game Result;
-    Action <--> Human Annotation;
-    Action <--> All Available Options;
+    Predictor -.-> State;
+    Policy --o Reward{{Reward}};
+    Policy([Policy Network]) --o Action{{Action}};
+    
+    Reward <--> Result[[Game Result]];
+    Action <--> Label[[Human Annotation]];
+    Action <--> Option[[All Available Options]];
+    State --> Predictor([Prediction Network]);
+    Action --> Predictor;
+```
 
-    State ==> Predictor;
-    Action ==> Predictor;
-    Predictor --o State;
-Section Online Contrastive Learning
-  State ==> Policy;
-    Policy --o Action;
-    Policy --o Reward;
-    Reward <--> Contrastive Learning based on Game Result + Curiosity based Exploration;
-    Action <--> All Available Options;
+### Online Contrastive Learning
 
-    State ==> Predictor;
-    Action ==> Predictor;
-    Predictor --o State;
+```mermaid
+graph TD;
+    State ==> Policy;
+    Predictor -.-> State;
+    Policy --o Reward{{Reward}};
+    Policy([Policy Network]) --o Action{{Action}};
+    
+    Reward <--> Result[[Pending Game Result]];
+    Action <--> Label[[Contrastive Learning]];
+    Action <--> Option[[All Available Options]];
+    State --> Predictor([Prediction Network]);
+    Action --> Predictor;
 ```
