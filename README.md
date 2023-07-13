@@ -13,7 +13,56 @@ The major roadmap for this repository is as follows.
   - Online contrastive learning for continuous improvements
 
 ## Data Collection Specifications
+### Game Saving
+Core components for data storage is organized by game stored in separate files. For each game object, we use json structure to save the critical decision for each step.
 
+```json
+{
+  "result": 1 (Win) / 0 (Tie) / -1 (Lose),
+  "metadata": {
+    // Metadata for the game
+    "elapsed": 0,  // Elapsed time
+    "turn": 0,  // Number of turns
+    "action": 0,  // Number of actions
+    ...
+  },
+  "sequence": {
+    // List of state, action and option pairs
+    "state": [
+      [
+        // List of entities
+        {
+          "card_id": "",
+          "map": [
+            "TAG": "VALUE"
+          ]
+        },
+      ],
+    ],
+    "action": [
+      [
+        "from": 0,
+        "to": 0,
+        "type": 0,
+        "choice": 0
+      ],
+    ],
+    "option": [
+      [
+        // All end effector options
+        [
+          "from": 0,
+          "to": 0,
+          "type": 0,
+          "choice": 0,
+        ],
+      ],
+    ]
+  }
+}
+```
+
+### Data Definition
 
 ## Baseline Reinforcement Learning Pipeline Design
 
