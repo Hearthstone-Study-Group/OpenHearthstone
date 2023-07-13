@@ -12,3 +12,9 @@ The major roadmap for this repository is as follows.
   - Offline fully-supervised learning with human annotation
   - Online contrastive learning for continuous improvements
 
+## Data Collection Specifications
+
+
+## Baseline Reinforcement Learning Pipeline Design
+
+
