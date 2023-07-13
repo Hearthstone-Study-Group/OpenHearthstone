@@ -17,4 +17,19 @@ The major roadmap for this repository is as follows.
 
 ## Baseline Reinforcement Learning Pipeline Design
 
+```mermaid
+graph LR;
+    In-game Text ==> Generative Pretrained Transformers (GPT);
+    Generative Pretrained Transformers (GPT) -.-> In-game Text;
 
+    State ==> Policy;
+    Policy --o Action;
+    Policy --o Reward;
+    Reward <-> Game Result;
+    Action <-> Human Annotation;
+    Action <-> All Available Options;
+
+    State ==> Predictor;
+    Action ==> Predictor;
+    Predictor --o State;
+```
