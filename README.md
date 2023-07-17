@@ -18,13 +18,17 @@ Core components for data storage is organized by game stored in separate files. 
 
 ```json
 {
-  "result": 1 (Win) / 0 (Tie) / -1 (Lose),
   "metadata": {
-    // Metadata for the game
-    "elapsed": 0,  // Elapsed time
-    "turn": 0,  // Number of turns
-    "action": 0,  // Number of actions
-    ...
+    "result": 1.0/-1.0, // WIN/LOSE
+    "elapsed": 42627.0, // Elapsed miliseconds
+    "total": 36,  // Total actions
+    "deck": {
+      "CARDID": COUNT,
+      ...
+    },
+    "deck_name": "DECKNAME",
+    "hero": HEROID,
+    "format": FORMATID
   },
   "sequence": {
     // List of state, action and option pairs
@@ -32,30 +36,38 @@ Core components for data storage is organized by game stored in separate files. 
       [
         // List of entities
         {
-          "card_id": "",
-          "map": [
+          "card_id": null,
+          "card_name": "",
+          "card_description": "",
+          "tags": [
             "TAG": "VALUE"
           ]
         },
       ],
     ],
     "action": [
-      [
-        "from": 0,
-        "to": 0,
-        "type": 0,
-        "choice": 0
-      ],
+      {
+        "type": ACTIONTYPE,
+        "sub_option": SUBOPTIONID,  // Default -1
+        "position": POSITION,
+        "entity": ENTITYID,
+        "target": TARGETID  // Default 0
+      },
+        ...
     ],
     "option": [
       [
         // All end effector options
-        [
-          "from": 0,
-          "to": 0,
-          "type": 0,
-          "choice": 0,
-        ],
+        {
+          "entity": ENTITYID,
+          "type": ACTIONTYPE,
+          "sub_options": [],
+          "targets": [
+            TARGETENTITYID,
+            ...
+          ]
+        },
+        ...
       ],
     ]
   }
