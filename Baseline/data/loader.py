@@ -104,17 +104,20 @@ class DataLoader:
         return sequence_data
 
     def preprocess_state(self, state):
+        state = [entity for entity in state if not (len(entity["card_name"]) == 0 or
+                                                    len(entity["card_description"]) == 0 or
+                                                    len(entity["card_id"]) == 0 or
+                                                    entity["card_id"] is None)]
         for entity in state:
-            if entity["card_name"] == "":
-                state.remove(entity)
-            else:
-                for tag in list(entity["tags"]):
-                    if tag not in self.scope:
-                        entity["tags"].pop(tag, None)
+            for tag in list(entity["tags"]):
+                if tag not in self.scope:
+                    entity["tags"].pop(tag, None)
         return state
 
     def preprocess_input(self, item):
         ret = json.dumps(item, separators=(',', ':')).replace("\"", "")
+        # if len(ret) > 4000:
+        #     print(json.dumps(item, separators=(',', ':')))
         keywords = [
             "entity",
             "type",
@@ -130,8 +133,7 @@ class DataLoader:
         ]
         for keyword in keywords:
             ret = ret.replace(keyword + ":", "")
-        if len(ret) > 15636:
-            print(ret)
+
         return ret
 
     def check_data(self, sequence_data):
