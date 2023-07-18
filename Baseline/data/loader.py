@@ -3,16 +3,21 @@ import json
 import torch
 from transformers import GPT2Tokenizer
 from definition.GAME_TAG import GAME_TAG
+from definition.TAG_ZONE import TAG_ZONE
 
 
 class DataLoader:
+    zone = [
+        TAG_ZONE.SECRET,
+        TAG_ZONE.HAND,
+        TAG_ZONE.PLAY
+    ]
     scope = [
         GAME_TAG.ENTITY_ID,
         GAME_TAG.HEALTH,
         GAME_TAG.ATK,
         GAME_TAG.COST,
         GAME_TAG.ARMOR,
-        GAME_TAG.PREMIUM,
         GAME_TAG.PLAYSTATE,
         GAME_TAG.LAST_AFFECTED_BY,
         GAME_TAG.STEP,
@@ -32,7 +37,6 @@ class DataLoader:
         GAME_TAG.ZONE,
         GAME_TAG.CONTROLLER,
         GAME_TAG.OWNER,
-        GAME_TAG.CARD_SET,
         GAME_TAG.CARDTEXT,
         GAME_TAG.DURABILITY,
         GAME_TAG.SILENCED,
@@ -80,12 +84,12 @@ class DataLoader:
         GAME_TAG.NUM_ATTACKS_THIS_TURN
     ]
 
-    def __init__(self, folder_path, tokenizer):
+    def __init__(self, folder_path, tokenizer, max_length=1024):
         self.folder_path = folder_path
         self.tokenizer = tokenizer
         if self.tokenizer.pad_token is None:
-            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-        self.max_length = 1024
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        self.max_length = max_length
 
     def load_json_data(self, file_path):
         with open(file_path, "r") as f:
@@ -107,8 +111,12 @@ class DataLoader:
         state = [entity for entity in state if not (len(entity["card_name"]) == 0 or
                                                     len(entity["card_description"]) == 0 or
                                                     len(entity["card_id"]) == 0 or
-                                                    entity["card_id"] is None)]
+                                                    entity["card_id"] is None or
+                                                    (GAME_TAG.ZONE in entity["tags"] and
+                                                     entity["tags"][GAME_TAG.ZONE] not in self.zone))]
         for entity in state:
+            entity.pop("card_name", None)
+            entity.pop("card_description", None)
             for tag in list(entity["tags"]):
                 if tag not in self.scope:
                     entity["tags"].pop(tag, None)
@@ -116,8 +124,6 @@ class DataLoader:
 
     def preprocess_input(self, item):
         ret = json.dumps(item, separators=(',', ':')).replace("\"", "")
-        # if len(ret) > 4000:
-        #     print(json.dumps(item, separators=(',', ':')))
         keywords = [
             "entity",
             "type",
