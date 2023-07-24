@@ -3,6 +3,8 @@
 runtime/
 storage/
 test-output.xml
+trained_transition_model/
+*.pt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

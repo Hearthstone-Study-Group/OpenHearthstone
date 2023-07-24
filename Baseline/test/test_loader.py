@@ -10,7 +10,7 @@ class LoaderTestCase(unittest.TestCase):
         folder_path = "../storage/v0.1"
         tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         data_loader = DataLoader(folder_path, tokenizer)
-        data_loader.max_length = 1e9
+        data_loader.max_length = 1e7
         training_data_property = data_loader.check_data_loader()
         source_data = np.array(training_data_property)
         print()
@@ -23,7 +23,7 @@ class LoaderTestCase(unittest.TestCase):
         folder_path = "../storage/v0.1"
         tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
         data_loader = TransitionLoader(folder_path, tokenizer)
-        data_loader.max_length = 1e9
+        data_loader.max_length = 1e7
         training_data_property = data_loader.check_data_loader()
         source_data = np.array(training_data_property)
         print()

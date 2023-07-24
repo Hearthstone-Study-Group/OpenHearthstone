@@ -1,11 +1,11 @@
 import torch
-from transformers import AutoModelForCausalLM as MOD, AutoTokenizer as TOK
+from transformers import AutoModelForSeq2SeqLM as MOD, AutoTokenizer as TOK
 
 
-class PolicyModel:
-    def __init__(self, max_length=1024, pretrained="gpt2"):
+class PredictorModel:
+    def __init__(self, max_length=1024, pretrained="google/long-t5-local-base"):
         self.max_length = max_length
-        self.tokenizer = TOK.from_pretrained("gpt2")
+        self.tokenizer = TOK.from_pretrained(pretrained)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         self.model = MOD.from_pretrained(pretrained)

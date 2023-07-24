@@ -1,13 +1,17 @@
 import os
 import re
+import copy
 import json
 import torch
+from tqdm import tqdm
 from transformers import GPT2Tokenizer
-from definition.GAME_TAG import GAME_TAG
+from definition.GAME_TAG import GAME_TAG, OPERABLE_GAME_TAG
 from definition.TAG_ZONE import TAG_ZONE
+from definition.OPTION_TYPE import OPTION_TYPE
 
 
-class DataLoader:
+class TransitionLoader:
+    tag_map = OPERABLE_GAME_TAG()
     zone = [
         TAG_ZONE.SECRET,
         TAG_ZONE.HAND,
@@ -19,74 +23,22 @@ class DataLoader:
         GAME_TAG.ATK,
         GAME_TAG.COST,
         GAME_TAG.ARMOR,
-        GAME_TAG.PLAYSTATE,
-        GAME_TAG.STEP,
-        GAME_TAG.TURN,
-        GAME_TAG.FATIGUE,
-        GAME_TAG.FIRST_PLAYER,
-        GAME_TAG.RESOURCES_USED,
-        GAME_TAG.RESOURCES,
-        GAME_TAG.HERO_ENTITY,
-        GAME_TAG.PLAYER_ID,
-        GAME_TAG.TEAM_ID,
-        GAME_TAG.ATTACKING,
-        GAME_TAG.ATTACHED,
-        GAME_TAG.EXHAUSTED,
-        GAME_TAG.DAMAGE,
         GAME_TAG.ZONE,
         GAME_TAG.CONTROLLER,
-        GAME_TAG.OWNER,
-        GAME_TAG.CARDTEXT,
-        GAME_TAG.DURABILITY,
-        GAME_TAG.SILENCED,
-        GAME_TAG.WINDFURY,
-        GAME_TAG.TAUNT,
-        GAME_TAG.STEALTH,
-        GAME_TAG.SPELLPOWER,
-        GAME_TAG.DIVINE_SHIELD,
-        GAME_TAG.INSPIRE,
-        GAME_TAG.POISONOUS,
-        GAME_TAG.LIFESTEAL,
-        GAME_TAG.RUSH,
-        GAME_TAG.OVERKILL,
-        GAME_TAG.PROPHECY,
-        GAME_TAG.REBORN,
-        GAME_TAG.TWINSPELL,
-        GAME_TAG.AVENGE,
-        GAME_TAG.CHARGE,
-        GAME_TAG.NEXT_STEP,
+        GAME_TAG.CLASS,
         GAME_TAG.CARDRACE,
         GAME_TAG.CARDTYPE,
-        GAME_TAG.STATE,
-        GAME_TAG.SUMMONED,
-        GAME_TAG.FREEZE,
-        GAME_TAG.ENRAGED,
-        GAME_TAG.OVERLOAD,
-        GAME_TAG.LOYALTY,
-        GAME_TAG.DEATHRATTLE,
-        GAME_TAG.BATTLECRY,
         GAME_TAG.SECRET,
-        GAME_TAG.MAGNET,
-        GAME_TAG.COMBO,
-        GAME_TAG.IMMUNE,
-        GAME_TAG.FROZEN,
-        GAME_TAG.ZONE_POSITION,
-        GAME_TAG.CARD_TARGET,
-        GAME_TAG.NUM_TURNS_IN_PLAY,
-        GAME_TAG.NUM_TURNS_LEFT,
-        GAME_TAG.NUM_TURNS_IN_HAND,
-        GAME_TAG.CURRENT_SPELLPOWER,
-        GAME_TAG.TEMP_RESOURCES,
-        GAME_TAG.OVERLOAD_OWED,
-        GAME_TAG.NUM_ATTACKS_THIS_TURN
+        GAME_TAG.ZONE_POSITION
     ]
 
-    def __init__(self, folder_path, tokenizer, max_length=1024):
+    def __init__(self, folder_path, tokenizer, max_length=1024, difference=False):
         self.folder_path = folder_path
         self.tokenizer = tokenizer
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         self.max_length = max_length
+        self.difference = difference
 
     def load_json_data(self, file_path):
         with open(file_path, "r") as f:
@@ -97,15 +49,19 @@ class DataLoader:
         sequence_data = []
         result = data["metadata"]["result"]
         decay_factor = 0.9  # Decaying factor for the reward
-        for state, action, option in zip(data["sequence"]["state"], data["sequence"]["action"], data["sequence"]["option"]):
+        for state, action, next_state, option, next_option in zip(data["sequence"]["state"][:-1], data["sequence"]["action"][:-1], 
+                                                                  data["sequence"]["state"][1:], data["sequence"]["option"][:-1], data["sequence"]["option"][1:]):
             reward = result * decay_factor
-            collated_data = (state, action, option, reward)
-            sequence_data.append(collated_data)
             decay_factor *= decay_factor  # Applying the decay factor recursively
+            if int(action["type"]) == OPTION_TYPE.END_TURN:
+                continue
+            collated_data = (state, action, copy.deepcopy(next_state), reward, option, next_option)
+            sequence_data.append(collated_data)
         return sequence_data
 
-    def preprocess_state(self, state):
-        state = [entity for entity in state if not (len(entity["card_name"]) == 0 or
+    def preprocess_state(self, state, option, strip=False):
+        operable = [int(item["entity"]) for item in option]
+        state = [copy.deepcopy(entity) for entity in state if not (len(entity["card_name"]) == 0 or
                                                     len(entity["card_description"]) == 0 or
                                                     len(entity["card_id"]) == 0 or
                                                     entity["card_id"] is None or
@@ -114,17 +70,26 @@ class DataLoader:
         for entity in state:
             entity.pop("card_id", None)
             entity.pop("card_name", None)
-            #entity.pop("card_description", None)
-            #entity.pop("tags", None)
+            # entity.pop("card_description", None)
             for tag in list(entity["tags"]):
                 if int(tag) not in self.scope:
-                    entity["tags"].pop(tag, None)
+                    if strip:
+                        entity["tags"].pop(tag, None)
+                elif int(tag) == GAME_TAG.ENTITY_ID:
+                    if int(entity["tags"][tag]) in operable:
+                        entity["tags"][str(OPERABLE_GAME_TAG.TAG_READY)] = "1"
+            
+            entity["named_tags"] = {}
+            for tag in list(entity["tags"]):
+                entity["named_tags"][str(self.tag_map[int(tag)])] = entity["tags"][tag]
+            entity.pop("tags", None)
+            
         return state
 
     def preprocess_input(self, item):
         ret = json.dumps(item, separators=(',', ':'))
         for removal in [
-            "\"", "{", "}", "[", "]"
+            "\"", "{", "}", "[", "]", "\'"
                 ]:
             ret = ret.replace(removal, "")
 
@@ -139,43 +104,76 @@ class DataLoader:
             "card_id",
             "card_name",
             "card_description",
+            "named_tags",
             "tags"
         ]
         for keyword in keywords:
             ret = ret.replace(keyword + ":", "")
-        ret = ret.replace(":", " ").replace(",", " ")
+        ret = ret.replace(":", " ").replace(",", " ").replace("\\n", " ")
         ret = re.sub(r"<.*?>", "", ret)
-        return ret
+        return ret.lower()
 
     def check_data(self, sequence_data):
         # Check the collated data for model input
         data = []
-        for state, action, option, reward in sequence_data:
-            state = self.preprocess_state(state)
-            tokenized_state = self.tokenizer(self.preprocess_input(state),
+        for state, action, next_state, reward, option, next_option in sequence_data:
+            stripped_state = self.preprocess_state(state, option, True)
+            tokenized_state = self.tokenizer(self.preprocess_input(action) + self.preprocess_input(stripped_state),
                                              max_length=self.max_length)
             tokenized_action = self.tokenizer(self.preprocess_input(action),
                                               max_length=self.max_length)
-            tokenized_option = self.tokenizer(self.preprocess_input(option),
-                                              max_length=self.max_length)
+            if self.difference:
+                full_next_state = self.preprocess_state(next_state, next_option, False)
+                full_state = self.preprocess_state(state, option, False)
+                stripped_next_state = self.calculate_difference(full_state, full_next_state)
+            else:
+                stripped_next_state = self.preprocess_state(next_state, next_option, True)
+            tokenized_next_state = self.tokenizer(self.preprocess_input(stripped_next_state),
+                                                  max_length=self.max_length)
             item = [len(tokenized_state["input_ids"]),
                     len(tokenized_action["input_ids"]),
-                    len(tokenized_option["input_ids"])]
+                    len(tokenized_next_state["input_ids"])]
             data.append(item)
         return data
+    
+    def calculate_difference(self, state, next_state):
+        state_dict = {entity["tags"][str(GAME_TAG.ENTITY_ID)]: entity["tags"] for entity in state}
+        next_state_dict = {entity["tags"][str(GAME_TAG.ENTITY_ID)]: entity["tags"] for entity in next_state}
+        difference = []
+        for entity_id in next_state_dict:
+            entity_difference = {}
+            if entity_id in state_dict:
+                for key in next_state_dict[entity_id]:
+                    if key in state_dict[entity_id] and state_dict[entity_id][key] == next_state_dict[entity_id][key]:
+                        continue
+                    else:
+                        entity_difference[key] = next_state_dict[entity_id][key]
+            else:
+                entity_difference = next_state_dict[entity_id]
+            if len(entity_difference) > 0:
+                entity_difference[str(GAME_TAG.ENTITY_ID)] = entity_id
+                difference.append(entity_difference)
+        return difference
 
     def tokenize_data(self, sequence_data):
         # Tokenize the collated data for model input
         tokenized_data = []
-        for state, action, option, reward in sequence_data:
+        for state, action, next_state, reward, option, next_option in sequence_data:
             # print(json.dumps(state, separators=(',', ':')))
             # Perform tokenization for state, action, and option (you may need to adjust this based on your data structure)
-            state = self.preprocess_state(state)
-            tokenized_state = self.tokenizer(self.preprocess_input(state), return_tensors="pt",
+            
+            stripped_state = self.preprocess_state(state, option, True)
+            tokenized_state = self.tokenizer(self.preprocess_input(action) + self.preprocess_input(stripped_state), return_tensors="pt",
                                              max_length=self.max_length, padding='max_length')
             tokenized_action = self.tokenizer(self.preprocess_input(action), return_tensors="pt",
                                               max_length=self.max_length, padding='max_length')
-            tokenized_option = self.tokenizer(self.preprocess_input(option), return_tensors="pt",
+            if self.difference:
+                full_next_state = self.preprocess_state(next_state, next_option, False)
+                full_state = self.preprocess_state(state, option, False)
+                stripped_next_state = self.calculate_difference(full_state, full_next_state)
+            else:
+                stripped_next_state = self.preprocess_state(next_state, next_option, True)
+            tokenized_next_state = self.tokenizer(self.preprocess_input(stripped_next_state), return_tensors="pt",
                                               max_length=self.max_length, padding='max_length')
 
             # Combine the tokenized data and add the reward term
@@ -184,8 +182,8 @@ class DataLoader:
                 "attention_mask_state": tokenized_state.attention_mask,
                 "input_ids_action": tokenized_action.input_ids,
                 "attention_mask_action": tokenized_action.attention_mask,
-                "input_ids_option": tokenized_option.input_ids,
-                "attention_mask_option": tokenized_option.attention_mask,
+                "input_ids_next_state": tokenized_next_state.input_ids,
+                "attention_mask_next_state": tokenized_next_state.attention_mask,
                 "reward": reward
             }
             tokenized_data.append(combined_data)
@@ -203,17 +201,18 @@ class DataLoader:
 
         # Convert tokenized data into PyTorch DataLoader
         input_ids_state = torch.stack([item["input_ids_state"] for item in data])
+        print(input_ids_state.shape)
         attention_mask_state = torch.stack([item["attention_mask_state"] for item in data])
         input_ids_action = torch.stack([item["input_ids_action"] for item in data])
         attention_mask_action = torch.stack([item["attention_mask_action"] for item in data])
-        input_ids_option = torch.stack([item["input_ids_option"] for item in data])
-        attention_mask_option = torch.stack([item["attention_mask_option"] for item in data])
+        input_ids_next_state = torch.stack([item["input_ids_next_state"] for item in data])
+        attention_mask_next_state = torch.stack([item["attention_mask_next_state"] for item in data])
         rewards = torch.tensor([item["reward"] for item in data])
 
         data_loader = torch.utils.data.DataLoader(
             torch.utils.data.TensorDataset(input_ids_state, attention_mask_state,
                                            input_ids_action, attention_mask_action,
-                                           input_ids_option, attention_mask_option,
+                                           input_ids_next_state, attention_mask_next_state,
                                            rewards),
             batch_size=batch_size,
             shuffle=True
@@ -236,7 +235,7 @@ if __name__ == "__main__":
     # Example usage:
     folder_path = "./storage/v0.1"
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-    data_loader = DataLoader(folder_path, tokenizer)
+    data_loader = TransitionLoader(folder_path, tokenizer)
     training_data_loader = data_loader.get_data_loader(batch_size=32)
     for batch in training_data_loader:
         # Access batched data here
