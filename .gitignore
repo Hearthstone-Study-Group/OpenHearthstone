@@ -4,6 +4,7 @@ runtime/
 storage/
 test-output.xml
 trained_transition_model/
+trained/
 *.pt
 
 # Byte-compiled / optimized / DLL files

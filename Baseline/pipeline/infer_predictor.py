@@ -8,7 +8,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # Initialize the PolicyModel and DataLoader
-policy_model = PredictorModel(max_length=1024, pretrained="trained_transition_model").to(device)
+policy_model = PredictorModel(max_length=1024, pretrained="trained/trained_transition_tglobal").to(device)
 data_loader = TransitionLoader(folder_path="./storage/v0.1", tokenizer=policy_model.tokenizer, difference=True,
                                max_length=policy_model.max_length)
 

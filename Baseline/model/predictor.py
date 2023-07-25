@@ -3,7 +3,7 @@ from transformers import AutoModelForSeq2SeqLM as MOD, AutoTokenizer as TOK
 
 
 class PredictorModel:
-    def __init__(self, max_length=1024, pretrained="google/long-t5-local-base"):
+    def __init__(self, max_length=1024, pretrained="google/long-t5-tglobal-base"): # "google/long-t5-local-base"):
         self.max_length = max_length
         self.tokenizer = TOK.from_pretrained(pretrained)
         if self.tokenizer.pad_token is None:

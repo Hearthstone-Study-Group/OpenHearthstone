@@ -47,5 +47,5 @@ for epoch in range(epochs):
         pbar.set_description(f"Loss: {loss.item()}")
 
 # Save the trained model if desired
-policy_model.model.save_pretrained("trained_transition_model")
-policy_model.tokenizer.save_pretrained("trained_transition_model")
+policy_model.model.save_pretrained("trained/trained_transition_tglobal")
+policy_model.tokenizer.save_pretrained("trained/trained_transition_tglobal")
