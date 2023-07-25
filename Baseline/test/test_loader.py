@@ -1,16 +1,16 @@
 import unittest
 from data.loader import DataLoader
 from data.transition import TransitionLoader
-from transformers import GPT2Tokenizer
+from transformers import AutoTokenizer as TOK
 import numpy as np
 
 
 class LoaderTestCase(unittest.TestCase):
     def test_loading(self):
         folder_path = "../storage/v0.1"
-        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+        tokenizer = TOK.from_pretrained("google/long-t5-tglobal-base")
         data_loader = DataLoader(folder_path, tokenizer)
-        data_loader.max_length = 1e7
+        data_loader.max_length = 10240
         training_data_property = data_loader.check_data_loader()
         source_data = np.array(training_data_property)
         print()
@@ -21,9 +21,9 @@ class LoaderTestCase(unittest.TestCase):
 
     def test_transition(self):
         folder_path = "../storage/v0.1"
-        tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-        data_loader = TransitionLoader(folder_path, tokenizer)
-        data_loader.max_length = 1e7
+        tokenizer = TOK.from_pretrained("google/long-t5-tglobal-base")
+        data_loader = TransitionLoader(folder_path, tokenizer, difference=True)
+        data_loader.max_length = 10240
         training_data_property = data_loader.check_data_loader()
         source_data = np.array(training_data_property)
         print()

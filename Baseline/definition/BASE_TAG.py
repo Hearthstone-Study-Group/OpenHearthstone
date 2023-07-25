@@ -9,4 +9,4 @@ class BASE_TAG:
                     self.keyword_map[getattr(self, attr_name)] = attr_name
         if value in self.keyword_map:
             return self.keyword_map[value]
-        return None
+        return str(value)

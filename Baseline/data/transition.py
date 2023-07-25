@@ -28,16 +28,45 @@ class TransitionLoader:
         GAME_TAG.CARDRACE,
         GAME_TAG.CARDTYPE,
         GAME_TAG.SECRET,
-        GAME_TAG.ZONE_POSITION
+        GAME_TAG.ZONE_POSITION,
+        GAME_TAG.FATIGUE,
+        GAME_TAG.EXHAUSTED
+    ]
+    game = [
+        GAME_TAG.ENTITY_ID,
+        GAME_TAG.HERO_ENTITY,
+        GAME_TAG.CONTROLLER,
+        GAME_TAG.MAXHANDSIZE,
+        GAME_TAG.TURN,
+        GAME_TAG.MAXRESOURCES,
+        GAME_TAG.RESOURCES,
+        GAME_TAG.TEMP_RESOURCES,
+        GAME_TAG.FATIGUE,
+        GAME_TAG.NUM_ATTACKS_THIS_TURN,
+        GAME_TAG.NUM_TURNS_IN_PLAY,
+        GAME_TAG.NUM_CARDS_DRAWN_THIS_TURN,
+        GAME_TAG.NUM_CARDS_PLAYED_THIS_TURN,
+        GAME_TAG.NUM_MINIONS_PLAYED_THIS_TURN,
+        # GAME_TAG.NUM_SPELLS_PLAYED_THIS_GAME,
+        GAME_TAG.NUM_MINIONS_KILLED_THIS_TURN,
+        GAME_TAG.NUM_OPTIONS_PLAYED_THIS_TURN,
+        GAME_TAG.NUM_MINIONS_PLAYER_KILLED_THIS_TURN,
+        GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_DIED_THIS_TURN,
+        GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_ATTACKED_THIS_TURN,
+        # GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_DIED_THIS_GAME,
+        GAME_TAG.NUM_CARDS_DRAWN_THIS_TURN,
+        # GAME_TAG.NUM_TIMES_HERO_POWER_USED_THIS_GAME,
+        # GAME_TAG.NUM_HERO_POWER_DAMAGE_THIS_GAME
     ]
 
-    def __init__(self, folder_path, tokenizer, max_length=1024, difference=False):
+    def __init__(self, folder_path, tokenizer, max_length=1024, difference=False, keep_all=False):
         self.folder_path = folder_path
         self.tokenizer = tokenizer
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
         self.max_length = max_length
         self.difference = difference
+        self.keep_all = keep_all
 
     def load_json_data(self, file_path):
         with open(file_path, "r") as f:
@@ -60,24 +89,31 @@ class TransitionLoader:
 
     def preprocess_state(self, state, option, strip=False):
         operable = [int(item["entity"]) for item in option]
-        state = [copy.deepcopy(entity) for entity in state if not (len(entity["card_name"]) == 0 or
-                                                    len(entity["card_description"]) == 0 or
-                                                    len(entity["card_id"]) == 0 or
-                                                    entity["card_id"] is None or
-                                                    (str(GAME_TAG.ZONE) in entity["tags"] and
-                                                     int(entity["tags"][str(GAME_TAG.ZONE)]) not in self.zone))]
+        state = [copy.deepcopy(entity) for entity in state
+                    if (str(GAME_TAG.ZONE) in entity["tags"] and
+                        int(entity["tags"][str(GAME_TAG.ZONE)]) == TAG_ZONE.PLAY) or
+                            not (len(entity["card_id"]) == 0 or
+                                entity["card_id"] is None or
+                                (str(GAME_TAG.ZONE) in entity["tags"] and
+                                    int(entity["tags"][str(GAME_TAG.ZONE)]) not in self.zone))]
         for entity in state:
             entity[""] = "|"
             entity.pop("card_id", None)
             entity.pop("card_name", None)
             # entity.pop("card_description", None)
-            for tag in list(entity["tags"]):
-                if int(tag) not in self.scope:
-                    if strip:
-                        entity["tags"].pop(tag, None)
-                elif int(tag) == GAME_TAG.ENTITY_ID:
-                    if int(entity["tags"][tag]) in operable:
-                        entity["tags"][str(OPERABLE_GAME_TAG.TAG_READY)] = "1"
+            if str(GAME_TAG.ZONE) in entity["tags"] and int(entity["tags"][str(GAME_TAG.ZONE)]) == TAG_ZONE.PLAY:
+                for tag in list(entity["tags"]):
+                    if int(tag) not in self.game:
+                        if not self.keep_all: # Removed strip
+                            entity["tags"].pop(tag, None)
+            else:
+                for tag in list(entity["tags"]):
+                    if int(tag) not in self.scope:
+                        if not self.keep_all: # Removed strip
+                            entity["tags"].pop(tag, None)
+                    elif int(tag) == GAME_TAG.ENTITY_ID:
+                        if int(entity["tags"][tag]) in operable:
+                            entity["tags"][str(OPERABLE_GAME_TAG.TAG_READY)] = "1"
             
             entity["named_tags"] = {}
             for tag in list(entity["tags"]):
