@@ -8,7 +8,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Initialize the PolicyModel and DataLoader
 policy_model = PredictorModel(max_length=1024).to(device)
-data_loader = TransitionLoader(folder_path="./storage/v0.1", tokenizer=policy_model.tokenizer,
+data_loader = TransitionLoader(folder_path="./storage/v0.1", tokenizer=policy_model.tokenizer, difference=True,
                                max_length=policy_model.max_length)
 
 # Get the data in PyTorch DataLoader format
@@ -31,8 +31,9 @@ for epoch in range(epochs):
 
         # Perform forward pass and calculate the loss
         outputs = policy_model.run_inference(inputs={
-            "input_ids": input_ids_state[0],
-            "attention_mask": attention_mask_state[0]
+            "input_ids": input_ids_state,
+            "attention_mask": attention_mask_state,
+            "labels": input_ids_next_state
         })
         logits = outputs.logits
         loss = loss_fn(logits.view(-1, logits.shape[-1]), input_ids_next_state.view(-1))

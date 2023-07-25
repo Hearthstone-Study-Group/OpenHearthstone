@@ -4,7 +4,6 @@ import copy
 import json
 import torch
 from tqdm import tqdm
-from transformers import GPT2Tokenizer
 from definition.GAME_TAG import GAME_TAG, OPERABLE_GAME_TAG
 from definition.TAG_ZONE import TAG_ZONE
 from definition.OPTION_TYPE import OPTION_TYPE
@@ -68,6 +67,7 @@ class TransitionLoader:
                                                     (str(GAME_TAG.ZONE) in entity["tags"] and
                                                      int(entity["tags"][str(GAME_TAG.ZONE)]) not in self.zone))]
         for entity in state:
+            entity[""] = "|"
             entity.pop("card_id", None)
             entity.pop("card_name", None)
             # entity.pop("card_description", None)
@@ -87,20 +87,19 @@ class TransitionLoader:
         return state
 
     def preprocess_input(self, item):
-        ret = json.dumps(item, separators=(',', ':'))
+        ret = json.dumps(item, separators=(' ', ' '))
         for removal in [
             "\"", "{", "}", "[", "]", "\'"
                 ]:
-            ret = ret.replace(removal, "")
-
+            ret = ret.replace(removal, " ")
         keywords = [
-            "entity",
-            "type",
+            # "entity",
+            # "type",
             "sub_options",
-            "sub_option",
-            "position",
+            # "sub_option",
+            # "position",
             "targets",
-            "target",
+            # "target",
             "card_id",
             "card_name",
             "card_description",
@@ -108,9 +107,12 @@ class TransitionLoader:
             "tags"
         ]
         for keyword in keywords:
-            ret = ret.replace(keyword + ":", "")
-        ret = ret.replace(":", " ").replace(",", " ").replace("\\n", " ")
+            ret = ret.replace(keyword, "")
+        ret = ret.replace("\\n", " ")
         ret = re.sub(r"<.*?>", "", ret)
+        ret = ret.strip()
+        while "  " in ret:
+            ret = ret.replace("  ", " ")
         return ret.lower()
 
     def check_data(self, sequence_data):
@@ -118,7 +120,8 @@ class TransitionLoader:
         data = []
         for state, action, next_state, reward, option, next_option in sequence_data:
             stripped_state = self.preprocess_state(state, option, True)
-            tokenized_state = self.tokenizer(self.preprocess_input(action) + self.preprocess_input(stripped_state),
+            # print(self.preprocess_input(action) + self.preprocess_input(stripped_state))
+            tokenized_state = self.tokenizer(self.preprocess_input(action) + " | " + self.preprocess_input(stripped_state),
                                              max_length=self.max_length)
             tokenized_action = self.tokenizer(self.preprocess_input(action),
                                               max_length=self.max_length)
@@ -137,8 +140,8 @@ class TransitionLoader:
         return data
     
     def calculate_difference(self, state, next_state):
-        state_dict = {entity["tags"][str(GAME_TAG.ENTITY_ID)]: entity["tags"] for entity in state}
-        next_state_dict = {entity["tags"][str(GAME_TAG.ENTITY_ID)]: entity["tags"] for entity in next_state}
+        state_dict = {entity["named_tags"]["ENTITY_ID"]: entity["named_tags"] for entity in state}
+        next_state_dict = {entity["named_tags"]["ENTITY_ID"]: entity["named_tags"] for entity in next_state}
         difference = []
         for entity_id in next_state_dict:
             entity_difference = {}
@@ -151,7 +154,8 @@ class TransitionLoader:
             else:
                 entity_difference = next_state_dict[entity_id]
             if len(entity_difference) > 0:
-                entity_difference[str(GAME_TAG.ENTITY_ID)] = entity_id
+                entity_difference["ENTITY_ID"] = entity_id
+                entity_difference[""] = "|"
                 difference.append(entity_difference)
         return difference
 
@@ -163,7 +167,7 @@ class TransitionLoader:
             # Perform tokenization for state, action, and option (you may need to adjust this based on your data structure)
             
             stripped_state = self.preprocess_state(state, option, True)
-            tokenized_state = self.tokenizer(self.preprocess_input(action) + self.preprocess_input(stripped_state), return_tensors="pt",
+            tokenized_state = self.tokenizer(self.preprocess_input(action) + " | " + self.preprocess_input(stripped_state), return_tensors="pt",
                                              max_length=self.max_length, padding='max_length')
             tokenized_action = self.tokenizer(self.preprocess_input(action), return_tensors="pt",
                                               max_length=self.max_length, padding='max_length')
@@ -200,13 +204,12 @@ class TransitionLoader:
             data.extend(tokenized_data)
 
         # Convert tokenized data into PyTorch DataLoader
-        input_ids_state = torch.stack([item["input_ids_state"] for item in data])
-        print(input_ids_state.shape)
-        attention_mask_state = torch.stack([item["attention_mask_state"] for item in data])
-        input_ids_action = torch.stack([item["input_ids_action"] for item in data])
-        attention_mask_action = torch.stack([item["attention_mask_action"] for item in data])
-        input_ids_next_state = torch.stack([item["input_ids_next_state"] for item in data])
-        attention_mask_next_state = torch.stack([item["attention_mask_next_state"] for item in data])
+        input_ids_state = torch.cat([item["input_ids_state"] for item in data])
+        attention_mask_state = torch.cat([item["attention_mask_state"] for item in data])
+        input_ids_action = torch.cat([item["input_ids_action"] for item in data])
+        attention_mask_action = torch.cat([item["attention_mask_action"] for item in data])
+        input_ids_next_state = torch.cat([item["input_ids_next_state"] for item in data])
+        attention_mask_next_state = torch.cat([item["attention_mask_next_state"] for item in data])
         rewards = torch.tensor([item["reward"] for item in data])
 
         data_loader = torch.utils.data.DataLoader(

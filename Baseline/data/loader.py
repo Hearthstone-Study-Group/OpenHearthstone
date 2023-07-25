@@ -2,7 +2,6 @@ import os
 import re
 import json
 import torch
-from transformers import GPT2Tokenizer
 from definition.GAME_TAG import GAME_TAG
 from definition.TAG_ZONE import TAG_ZONE
 
@@ -202,12 +201,12 @@ class DataLoader:
             data.extend(tokenized_data)
 
         # Convert tokenized data into PyTorch DataLoader
-        input_ids_state = torch.stack([item["input_ids_state"] for item in data])
-        attention_mask_state = torch.stack([item["attention_mask_state"] for item in data])
-        input_ids_action = torch.stack([item["input_ids_action"] for item in data])
-        attention_mask_action = torch.stack([item["attention_mask_action"] for item in data])
-        input_ids_option = torch.stack([item["input_ids_option"] for item in data])
-        attention_mask_option = torch.stack([item["attention_mask_option"] for item in data])
+        input_ids_state = torch.cat([item["input_ids_state"] for item in data])
+        attention_mask_state = torch.cat([item["attention_mask_state"] for item in data])
+        input_ids_action = torch.cat([item["input_ids_action"] for item in data])
+        attention_mask_action = torch.cat([item["attention_mask_action"] for item in data])
+        input_ids_option = torch.cat([item["input_ids_option"] for item in data])
+        attention_mask_option = torch.cat([item["attention_mask_option"] for item in data])
         rewards = torch.tensor([item["reward"] for item in data])
 
         data_loader = torch.utils.data.DataLoader(
