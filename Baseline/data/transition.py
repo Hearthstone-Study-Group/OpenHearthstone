@@ -19,6 +19,7 @@ class TransitionLoader:
     scope = [
         GAME_TAG.ENTITY_ID,
         GAME_TAG.HEALTH,
+        GAME_TAG.DAMAGE,
         GAME_TAG.ATK,
         GAME_TAG.COST,
         GAME_TAG.ARMOR,
@@ -34,6 +35,11 @@ class TransitionLoader:
     ]
     game = [
         GAME_TAG.ENTITY_ID,
+        GAME_TAG.HEALTH,
+        GAME_TAG.DAMAGE,
+        GAME_TAG.ATK,
+        GAME_TAG.COST,
+        GAME_TAG.ARMOR,
         GAME_TAG.HERO_ENTITY,
         GAME_TAG.CONTROLLER,
         GAME_TAG.MAXHANDSIZE,
@@ -42,19 +48,20 @@ class TransitionLoader:
         GAME_TAG.RESOURCES,
         GAME_TAG.TEMP_RESOURCES,
         GAME_TAG.FATIGUE,
-        GAME_TAG.NUM_ATTACKS_THIS_TURN,
-        GAME_TAG.NUM_TURNS_IN_PLAY,
-        GAME_TAG.NUM_CARDS_DRAWN_THIS_TURN,
-        GAME_TAG.NUM_CARDS_PLAYED_THIS_TURN,
-        GAME_TAG.NUM_MINIONS_PLAYED_THIS_TURN,
-        # GAME_TAG.NUM_SPELLS_PLAYED_THIS_GAME,
-        GAME_TAG.NUM_MINIONS_KILLED_THIS_TURN,
-        GAME_TAG.NUM_OPTIONS_PLAYED_THIS_TURN,
-        GAME_TAG.NUM_MINIONS_PLAYER_KILLED_THIS_TURN,
-        GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_DIED_THIS_TURN,
-        GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_ATTACKED_THIS_TURN,
-        # GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_DIED_THIS_GAME,
-        GAME_TAG.NUM_CARDS_DRAWN_THIS_TURN,
+        GAME_TAG.EXHAUSTED
+        # GAME_TAG.NUM_ATTACKS_THIS_TURN,
+        # GAME_TAG.NUM_TURNS_IN_PLAY,
+        # GAME_TAG.NUM_CARDS_DRAWN_THIS_TURN,
+        # GAME_TAG.NUM_CARDS_PLAYED_THIS_TURN,
+        # GAME_TAG.NUM_MINIONS_PLAYED_THIS_TURN,
+        # # GAME_TAG.NUM_SPELLS_PLAYED_THIS_GAME,
+        # GAME_TAG.NUM_MINIONS_KILLED_THIS_TURN,
+        # GAME_TAG.NUM_OPTIONS_PLAYED_THIS_TURN,
+        # GAME_TAG.NUM_MINIONS_PLAYER_KILLED_THIS_TURN,
+        # GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_DIED_THIS_TURN,
+        # GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_ATTACKED_THIS_TURN,
+        # # GAME_TAG.NUM_FRIENDLY_MINIONS_THAT_DIED_THIS_GAME,
+        # GAME_TAG.NUM_CARDS_DRAWN_THIS_TURN,
         # GAME_TAG.NUM_TIMES_HERO_POWER_USED_THIS_GAME,
         # GAME_TAG.NUM_HERO_POWER_DAMAGE_THIS_GAME
     ]
@@ -87,17 +94,19 @@ class TransitionLoader:
             sequence_data.append(collated_data)
         return sequence_data
 
-    def preprocess_state(self, state, option, strip=False):
+    def preprocess_state(self, state, option, filtering=True):
         operable = [int(item["entity"]) for item in option]
-        state = [copy.deepcopy(entity) for entity in state
-                    if (str(GAME_TAG.ZONE) in entity["tags"] and
-                        int(entity["tags"][str(GAME_TAG.ZONE)]) == TAG_ZONE.PLAY) or
-                            not (len(entity["card_id"]) == 0 or
-                                entity["card_id"] is None or
-                                (str(GAME_TAG.ZONE) in entity["tags"] and
-                                    int(entity["tags"][str(GAME_TAG.ZONE)]) not in self.zone))]
+        if filtering:
+            state = [copy.deepcopy(entity) for entity in state
+                        if (str(GAME_TAG.ZONE) in entity["tags"] and
+                            int(entity["tags"][str(GAME_TAG.ZONE)]) == TAG_ZONE.PLAY) or
+                                not (len(entity["card_id"]) == 0 or
+                                    entity["card_id"] is None or
+                                    (str(GAME_TAG.ZONE) in entity["tags"] and
+                                        int(entity["tags"][str(GAME_TAG.ZONE)]) not in self.zone))]
+        else:
+            state = [copy.deepcopy(entity) for entity in state]
         for entity in state:
-            entity[""] = "|"
             entity.pop("card_id", None)
             entity.pop("card_name", None)
             # entity.pop("card_description", None)
@@ -123,9 +132,12 @@ class TransitionLoader:
         return state
 
     def preprocess_input(self, item):
-        ret = json.dumps(item, separators=(' ', ' '))
+        if isinstance(item, dict):
+            ret = json.dumps(item, separators=(' ', ' '))
+        else:
+            ret = "|".join([json.dumps(entity, separators=(' ', ' ')) for entity in item])
         for removal in [
-            "\"", "{", "}", "[", "]", "\'"
+            "[x]", "\"", "{", "}", "[", "]", "\'"
                 ]:
             ret = ret.replace(removal, " ")
         keywords = [
@@ -149,6 +161,7 @@ class TransitionLoader:
         ret = ret.strip()
         while "  " in ret:
             ret = ret.replace("  ", " ")
+        ret = ret.replace(" | ", "|")
         return ret.lower()
 
     def check_data(self, sequence_data):
@@ -156,14 +169,13 @@ class TransitionLoader:
         data = []
         for state, action, next_state, reward, option, next_option in sequence_data:
             stripped_state = self.preprocess_state(state, option, True)
-            # print(self.preprocess_input(action) + self.preprocess_input(stripped_state))
-            tokenized_state = self.tokenizer(self.preprocess_input(action) + " | " + self.preprocess_input(stripped_state),
+            tokenized_state = self.tokenizer(self.preprocess_input(action) + "|" + self.preprocess_input(stripped_state),
                                              max_length=self.max_length)
             tokenized_action = self.tokenizer(self.preprocess_input(action),
                                               max_length=self.max_length)
             if self.difference:
                 full_next_state = self.preprocess_state(next_state, next_option, False)
-                full_state = self.preprocess_state(state, option, False)
+                full_state = self.preprocess_state(state, option, True)
                 stripped_next_state = self.calculate_difference(full_state, full_next_state)
             else:
                 stripped_next_state = self.preprocess_state(next_state, next_option, True)
@@ -179,19 +191,19 @@ class TransitionLoader:
         state_dict = {entity["named_tags"]["ENTITY_ID"]: entity["named_tags"] for entity in state}
         next_state_dict = {entity["named_tags"]["ENTITY_ID"]: entity["named_tags"] for entity in next_state}
         difference = []
-        for entity_id in next_state_dict:
+        for entity_id in state_dict:
             entity_difference = {}
-            if entity_id in state_dict:
+            if entity_id in next_state_dict:
                 for key in next_state_dict[entity_id]:
                     if key in state_dict[entity_id] and state_dict[entity_id][key] == next_state_dict[entity_id][key]:
                         continue
                     else:
                         entity_difference[key] = next_state_dict[entity_id][key]
             else:
-                entity_difference = next_state_dict[entity_id]
+                continue
+                # entity_difference = next_state_dict[entity_id]
             if len(entity_difference) > 0:
                 entity_difference["ENTITY_ID"] = entity_id
-                entity_difference[""] = "|"
                 difference.append(entity_difference)
         return difference
 
@@ -203,7 +215,7 @@ class TransitionLoader:
             # Perform tokenization for state, action, and option (you may need to adjust this based on your data structure)
             
             stripped_state = self.preprocess_state(state, option, True)
-            tokenized_state = self.tokenizer(self.preprocess_input(action) + " | " + self.preprocess_input(stripped_state), return_tensors="pt",
+            tokenized_state = self.tokenizer(self.preprocess_input(action) + "|" + self.preprocess_input(stripped_state), return_tensors="pt",
                                              max_length=self.max_length, padding='max_length')
             tokenized_action = self.tokenizer(self.preprocess_input(action), return_tensors="pt",
                                               max_length=self.max_length, padding='max_length')

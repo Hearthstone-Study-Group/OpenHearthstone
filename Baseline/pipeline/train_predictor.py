@@ -7,7 +7,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # Initialize the PolicyModel and DataLoader
-policy_model = PredictorModel(max_length=1200).to(device)
+policy_model = PredictorModel(max_length=900).to(device)
 data_loader = TransitionLoader(folder_path="./storage/v0.1", tokenizer=policy_model.tokenizer, difference=True,
                                max_length=policy_model.max_length)
 
@@ -47,5 +47,5 @@ for epoch in range(epochs):
         pbar.set_description(f"Loss: {loss.item()}")
 
 # Save the trained model if desired
-policy_model.model.save_pretrained("trained/trained_transition_tglobal_1.2k")
-policy_model.tokenizer.save_pretrained("trained/trained_transition_tglobal_1.2k")
+policy_model.model.save_pretrained("trained/trained_transition_tglobal_0.9k")
+policy_model.tokenizer.save_pretrained("trained/trained_transition_tglobal_0.9k")
